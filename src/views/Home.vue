@@ -5,8 +5,12 @@
         <h1>Заметки</h1>
         <hr />
         <br /><br />
-        <alert :message=message v-if="showMessage"></alert>
-        <button type="button" class="btn btn-success btn-sm" v-b-modal.note-modal>
+        <alert :message="message" v-if="showMessage"></alert>
+        <button
+          type="button"
+          class="btn btn-success btn-sm"
+          v-b-modal.note-modal
+        >
           Добавить заметку
         </button>
         <br /><br />
@@ -23,9 +27,13 @@
             <tr v-for="(note, index) in notes" :key="index">
               <td>{{ note.title }}</td>
               <td>{{ note.body }}</td>
-              <td>{{ note.createTime }}</td>
+              <td>{{ note.createTime | formatDate}}</td>
               <td>
-                <button type="button" class="btn btn-warning btn-sm">
+                <button
+                    type="button"
+                    class="btn btn-warning btn-sm"
+                    v-b-modal.note-update-modal
+                    @click="editNote(note)">
                   Изменить
                 </button>
                 <button type="button" class="btn btn-danger btn-sm">
@@ -75,70 +83,109 @@
           </b-form-input>
         </b-form-group>
 
+        <b-button type="submit" variant="primary">Сохранить</b-button>
+        <b-button type="reset" variant="danger">Сбросить</b-button>
+      </b-form>
+    </b-modal>
+    
+    <b-modal
+      ref="editNoteModal"
+      id="note-update-modal"
+      title="Изменить"
+      hide-footer
+    >
+      <b-form @submit="onSubmitUpdate" @reset="onResetUpdate" class="w-100">
         <b-form-group
-          id="form-createTime-group"
-          label="Дата создания:"
-          label-for="form-createTime-input"
+          id="form-title-edit-group"
+          label="Заголовок:"
+          label-for="form-title-edit-input"
         >
           <b-form-input
-            id="form-createTime-input"
+            id="form-title-edit-input"
             type="text"
-            v-model="addNoteForm.createTime"
+            v-model="editForm.title"
             required
+            placeholder="Введите название"
           >
           </b-form-input>
         </b-form-group>
 
-        <b-button type="submit" variant="primary">Сохранить</b-button>
-        <b-button type="reset" variant="danger">Сбросить</b-button>
+        <b-form-group
+          id="form-body-edit-group"
+          label="Текст:"
+          label-for="form-body-edit-input"
+        >
+          <b-form-input
+            id="form-body-edit-input"
+            type="text"
+            v-model="editForm.body"
+            required
+            placeholder="Введите текст заметки"
+          >
+          </b-form-input>
+        </b-form-group>
+
+        <b-button type="submit" variant="primary">Update</b-button>
+        <b-button type="reset" variant="danger">Cancel</b-button>
       </b-form>
     </b-modal>
   </div>
 </template>
 
 <script>
-import axios from 'axios';
-import Alert from '../components/Alert';
+import axios from "axios";
+import Alert from "../components/Alert";
 
 export default {
   data() {
     return {
       notes: [],
       addNoteForm: {
-        title: '',
-        body: '',
-        createTime: ''
+        title: "",
+        body: "",
       },
       message: "",
       showMessage: false,
+      editForm: {
+        id: "",
+        title: "",
+        body: "",
+      },
     };
   },
   components: {
     alert: Alert,
   },
   methods: {
-    getNotes() {
-      const path = "http://localhost:56759/api/Notes";
-      axios
-        .get(path)
-        .then((res) => {
-          this.notes = res.data;
-        })
-        .catch((err) => {
-          // eslint-отключение следующей строки
-          console.error(err);
-        });
+    editNote(note) {
+      this.editForm = note;
     },
-    addNote(payload) {
-      const path = "http://localhost:56759/api/Notes";
-      const headers = {
-        "Content-Type": "application/json"
+    onSubmitUpdate(evt) {
+      evt.preventDefault();
+      this.$refs.editNoteModal.hide();
+
+      const payload = {
+        id: this.editForm.id,
+        title: this.editForm.title,
+        body: this.editForm.body,
       };
-      axios.post(path, payload, { headers })
+      this.updateNote(payload, this.editForm.id);
+    },
+    onResetUpdate(evt) {
+      evt.preventDefault();
+      this.$refs.editNoteModal.hide();
+      this.initForm();
+      this.getNotes();
+    },
+    updateNote(payload, noteID) {
+      const path = `http://localhost:56759/api/Notes/${noteID}`;
+      const headers = {
+        "Content-Type": "application/json",
+      };
+      axios.put(path, payload)
         .then(() => {
           this.getNotes();
-          console.log("POST запрос был выполнен");
-          this.message = 'Note added!';
+          this.message = 'Note updated!';
           this.showMessage = true;
         })
         .catch((error) => {
@@ -147,10 +194,43 @@ export default {
           this.getNotes();
         });
     },
+    getNotes() {
+      const path = "http://localhost:56759/api/Notes";
+      axios
+        .get(path)
+        .then((res) => {
+          this.notes = res.data;
+        })
+        .catch((err) => {
+          console.log(error);
+        });
+    },
+    addNote(payload) {
+      const path = "http://localhost:56759/api/Notes";
+      const headers = {
+        "Content-Type": "application/json",
+      };
+      axios
+        .post(path, payload, { headers })
+        .then(() => {
+          this.getNotes();
+          console.log("POST запрос получился");
+          this.message = "Заметка добавлена";
+          this.showMessage = true;
+        })
+        .catch((error) => {
+          // eslint-отключение следующей строки
+          console.log(error);
+        });
+    },
     initForm() {
-      this.addNoteForm.title = '';
-      this.addNoteForm.body = '';
-      this.addNoteForm.createTime = '';
+      this.addNoteForm.title = "";
+      this.addNoteForm.body = "";
+      this.addNoteForm.createTime = "";
+      this.editForm.id = '';
+      this.editForm.title = '';
+      this.editForm.body = '';
+      this.editForm.createTime = '';
     },
     onSubmit(evt) {
       evt.preventDefault();
@@ -159,7 +239,6 @@ export default {
       const payload = {
         title: this.addNoteForm.title,
         body: this.addNoteForm.body,
-        createTime: this.addNoteForm.createTime
       };
 
       this.addNote(payload);
@@ -169,8 +248,6 @@ export default {
       evt.preventDefault();
       this.$refs.addNoteModal.hide();
       this.initForm();
-      this.message = 'Note not added!';
-      this.showMessage = true;
     },
   },
   created() {
